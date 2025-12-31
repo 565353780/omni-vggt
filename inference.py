@@ -220,12 +220,12 @@ def viser_wrapper(
         print(f"Threshold absolute value: {threshold_val}, percentage: {current_percentage}%")
 
         conf_mask = (conf_flat >= threshold_val) & (conf_flat > 1e-5)
-        
+
         # Apply black background mask if enabled
         if mask_black_bg:
             black_bg_mask = colors_flat.sum(axis=1) >= 16
             conf_mask = conf_mask & black_bg_mask
-        
+
         # Apply white background mask if enabled
         if mask_white_bg:
             white_bg_mask = ~((colors_flat[:, 0] > 240) & (colors_flat[:, 1] > 240) & (colors_flat[:, 2] > 240))

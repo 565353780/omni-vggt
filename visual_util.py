@@ -726,28 +726,31 @@ def load_images_and_cameras(
             background = Image.new("RGBA", img.size, (255, 255, 255, 255))
             img = Image.alpha_composite(background, img)
         img = img.convert("RGB")
-        width, height = img.size
+        orig_width, orig_height = img.size
 
-        # Calculate resize parameters
-        new_width = target_size
-        new_height = round(height * (new_width / width) / 14) * 14
-        scale_x = new_width / width
-        scale_y = new_height / height
+        # Calculate resize parameters based on max dimension
+        max_dim = max(orig_width, orig_height)
+        scale = target_size / max_dim
+        new_width = int(orig_width * scale)
+        new_height = int(orig_height * scale)
+        scale_x = new_width / orig_width
+        scale_y = new_height / orig_height
 
-        # Resize image
+        # Resize image while maintaining aspect ratio
         img = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
 
-        # Calculate crop parameters if needed
-        crop_start_y = 0
-        final_height = new_height
-        if new_height > target_size:
-            crop_start_y = (new_height - target_size) // 2
-            final_height = target_size
-            # Crop image to target size
-            img = img.crop((0, crop_start_y, new_width, crop_start_y + target_size))
+        # Create white background canvas
+        canvas = Image.new("RGB", (target_size, target_size), (255, 255, 255))
+        
+        # Calculate offset to center the resized image
+        offset_x = (target_size - new_width) // 2
+        offset_y = (target_size - new_height) // 2
+        
+        # Paste resized image onto canvas
+        canvas.paste(img, (offset_x, offset_y))
 
         # Normalize image
-        img = ImgNorm(img)
+        img = ImgNorm(canvas)
         img_list.append(img)
 
         # Initialize camera and depth data
@@ -784,13 +787,16 @@ def load_images_and_cameras(
             # cv2.resize expects (width, height) as the second parameter
             depthmap = cv2.resize(depthmap, (new_width, new_height), interpolation=cv2.INTER_NEAREST)
 
-            # Crop depth map if needed (same crop as image)
-            if new_height > target_size:
-                depthmap = depthmap[crop_start_y : crop_start_y + target_size, :]
+            # Create zero-filled depth canvas
+            depth_canvas = np.zeros((target_size, target_size), dtype=np.float32)
+            
+            # Paste resized depth map onto canvas at the same offset as image
+            depth_canvas[offset_y:offset_y+new_height, offset_x:offset_x+new_width] = depthmap
 
+            depthmap = depth_canvas
             mask = depthmap > 1e-5
         else:
-            depthmap = np.zeros((final_height, new_width), dtype=np.float32)
+            depthmap = np.zeros((target_size, target_size), dtype=np.float32)
             mask = np.zeros_like(depthmap, dtype=bool)
 
         depths_list.append(depthmap)
@@ -812,9 +818,9 @@ def load_images_and_cameras(
             intrinsic[0, 2] *= scale_x  # cx
             intrinsic[1, 2] *= scale_y  # cy
 
-            # Apply crop adjustment to principal point y-coordinate
-            if new_height > target_size:
-                intrinsic[1, 2] -= crop_start_y  # cy
+            # Apply offset adjustment to principal point (image is centered on canvas)
+            intrinsic[0, 2] += offset_x  # cx
+            intrinsic[1, 2] += offset_y  # cy
 
             # Convert camera-to-world to world-to-camera
             extrinsic = closed_form_inverse_se3(extrinsic[None])[0][:3]

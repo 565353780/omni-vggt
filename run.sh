@@ -5,7 +5,8 @@ python inference.py \
   --camera_folder $OMNIVGGT_DATA_FOLDER/cameras/ \
   --depth_folder $OMNIVGGT_DATA_FOLDER/depths/ \
   --target_size 518 \
-  --conf_threshold 25.0 \
+  --use_point_map \
+  --conf_threshold 80.0 \
   --port 8080 \
-  --background_mode \
-  --save_glb
+  --save_glb \
+  --background_mode
