@@ -1,3 +1,9 @@
+cd ..
+git clone https://github.com/565353780/camera-control.git
+
+cd camera-control
+./setup.sh
+
 pip install numpy pillow opencv-python scipy einops safetensors \
   trimesh matplotlib imageio tqdm requests onnxruntime \
   huggingface_hub evo mmengine transformers accelerate wandb \
