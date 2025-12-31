@@ -2,10 +2,14 @@ import sys
 sys.path.append('../camera-control')
 
 import os
+import cv2
 import torch
 import pickle
+import numpy as np
 
 from camera_control.Method.io import loadMeshFile
+from camera_control.Module.camera import Camera
+from camera_control.Module.nvdiffrast_renderer import NVDiffRastRenderer
 
 from omni_vggt.Module.image_mesh_mapper import ImageMeshMapper
 from omni_vggt.Module.detector import Detector
@@ -42,6 +46,7 @@ if __name__ == '__main__':
 
     tmp_output_pkl = "./output/tmp_" + shape_id + ".pkl"
 
+    image = cv2.imread(image_file_path)
     mesh = loadMeshFile(mesh_file_path)
 
     if not os.path.exists(tmp_output_pkl):
@@ -72,4 +77,55 @@ if __name__ == '__main__':
         try:
             print(key, value.shape)
         except:
-            print(key, value)
+            pass
+
+    depth = predictions['depth'][-1]
+    depth_conf = predictions['depth_conf'][-1]
+    extrinsic = predictions['extrinsic'][-1]
+    intrinsic = predictions['intrinsic'][-1]
+    world_points = predictions['world_points_from_depth'][-1]
+
+    camera_0_file_path = save_data_folder_path + 'cameras/0.txt'
+
+    gt_camera = Camera(
+        width=image.shape[1],
+        height=image.shape[0],
+        device=device,
+    )
+    gt_camera.loadVGGTCameraFile(camera_0_file_path)
+
+    print('gt camera 0:')
+    print(gt_camera.camera2worldCV)
+
+    camera_0_extrinsic = predictions['extrinsic'][0]
+    camera_0_intrinsic = predictions['intrinsic'][0]
+
+    camera2world_cv = np.eye(4)
+    camera2world_cv[:3, :] = camera_0_extrinsic
+
+    print('predict camera 0:')
+    print(camera2world_cv)
+
+    camera = Camera(
+        width=image.shape[1],
+        height=image.shape[0],
+        fx=camera_0_intrinsic[0][0],
+        fy=camera_0_intrinsic[1][1],
+        cx=camera_0_intrinsic[0][2],
+        cy=camera_0_intrinsic[1][2],
+        device=device,
+    )
+    camera.setWorld2CameraByCamera2WorldCV(camera2world_cv)
+
+    print('loaded camera 0:')
+    print(camera.camera2worldCV)
+
+    render_dict = NVDiffRastRenderer.renderTexture(mesh, gt_camera)
+    render_image = render_dict['image']
+
+    concat_img = np.concatenate([image, render_image], axis=1)
+
+    os.makedirs(save_data_folder_path + '/tmp/', exist_ok=True)
+    save_concat_path = save_data_folder_path + '/tmp/image_and_render_concat.png'
+    cv2.imwrite(save_concat_path, concat_img)
+    print(f"Concatenated image saved to {save_concat_path}")
