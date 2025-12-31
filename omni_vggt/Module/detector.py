@@ -74,7 +74,9 @@ class Detector(object):
         predictions["extrinsic"] = extrinsic
         predictions["intrinsic"] = intrinsic
 
-        return predictions
+        predictions_0 = select_first_batch(predictions)
+        get_world_points_from_depth(predictions_0)
+        return predictions_0
 
     def saveAsGLB(
         self,
@@ -83,10 +85,8 @@ class Detector(object):
         save_glb_file_path: str,
     ) -> bool:
         print("Exporting scene to GLB...")
-        predictions_0 = select_first_batch(predictions)
-        get_world_points_from_depth(predictions_0)
         glbscene = predictions_to_glb(
-            predictions_0,
+            predictions,
             conf_thres=0.0,
             filter_by_frames='All',
             mask_white_bg=False,

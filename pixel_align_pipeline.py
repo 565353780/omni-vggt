@@ -10,8 +10,6 @@ from camera_control.Method.io import loadMeshFile
 from omni_vggt.Module.image_mesh_mapper import ImageMeshMapper
 from omni_vggt.Module.detector import Detector
 
-tmp_output_pkl = "./output/tmp.pkl"
-
 def toGPU(pred, device):
     """
     Move all tensors in pred dict to specified device.
@@ -31,27 +29,31 @@ def load_predictions(path):
         return pickle.load(f)
 
 if __name__ == '__main__':
+    shape_id = 'nezha'
+
     home = os.environ['HOME']
     model_file_path = home + '/chLi/Model/OmniVGGT/OmniVGGT.safetensors'
-    image_file_path = home + "/chLi/Dataset/MM/Match/nezha/nezha.png"
-    mesh_file_path = home + "/chLi/Dataset/MM/Match/nezha/nezha.glb"
-    save_data_folder_path = home + "/chLi/Dataset/MM/Match/nezha/omnivggt/"
+    image_file_path = home + "/chLi/Dataset/MM/Match/" + shape_id + "/" + shape_id + ".png"
+    mesh_file_path = home + "/chLi/Dataset/MM/Match/" + shape_id + "/" + shape_id + ".glb"
+    save_data_folder_path = home + "/chLi/Dataset/MM/Match/" + shape_id + "/omnivggt/"
     camera_num = 24
     camera_dist = 2.5
     device = 'cuda:0'
 
+    tmp_output_pkl = "./output/tmp_" + shape_id + ".pkl"
+
     mesh = loadMeshFile(mesh_file_path)
 
-    ImageMeshMapper.createOmniVGGTDataFolder(
-        image_file_path,
-        mesh,
-        save_data_folder_path,
-        camera_num=camera_num,
-        camera_dist=camera_dist,
-        device=device,
-    )
-
     if not os.path.exists(tmp_output_pkl):
+        ImageMeshMapper.createOmniVGGTDataFolder(
+            image_file_path,
+            mesh,
+            save_data_folder_path,
+            camera_num=camera_num,
+            camera_dist=camera_dist,
+            device=device,
+        )
+
         detector = Detector(model_file_path, device)
         predictions = detector.detect(
             image_folder_path=save_data_folder_path + 'images/',
@@ -66,4 +68,8 @@ if __name__ == '__main__':
         predictions = toGPU(predictions, device)
         print(f"Loaded predictions from {tmp_output_pkl} and moved tensor data to {device}")
 
-    print(predictions.keys())
+    for key, value in predictions.items():
+        try:
+            print(key, value.shape)
+        except:
+            print(key, value)
