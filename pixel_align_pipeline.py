@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append('../camera-control')
 
 import os
@@ -11,6 +12,7 @@ from camera_control.Method.io import loadMeshFile
 from camera_control.Module.camera import Camera
 from camera_control.Module.nvdiffrast_renderer import NVDiffRastRenderer
 
+from omni_vggt.Method.data import toTensor
 from omni_vggt.Module.image_mesh_mapper import ImageMeshMapper
 from omni_vggt.Module.detector import Detector
 
@@ -42,6 +44,7 @@ if __name__ == '__main__':
     save_data_folder_path = home + "/chLi/Dataset/MM/Match/" + shape_id + "/omnivggt/"
     camera_num = 24
     camera_dist = 2.5
+    dtype = torch.float32
     device = 'cuda:0'
 
     tmp_output_pkl = "./output/tmp_" + shape_id + ".pkl"
@@ -85,7 +88,16 @@ if __name__ == '__main__':
     intrinsic = predictions['intrinsic'][-1]
     world_points = predictions['world_points_from_depth'][-1]
 
+    c2wCV_file_path = save_data_folder_path + 'cameras/c2wCV.txt'
     camera_0_file_path = save_data_folder_path + 'cameras/0.txt'
+
+    with open(c2wCV_file_path, 'r') as f:
+        lines = f.readlines()
+
+    c2wCV = np.eye(4)
+    for i in range(3):
+        c2wCV[i] = [float(d) for d in lines[i].split()]
+    c2wCV = toTensor(c2wCV, dtype, device)
 
     gt_camera = Camera(
         width=image.shape[1],
@@ -93,34 +105,25 @@ if __name__ == '__main__':
         device=device,
     )
     gt_camera.loadVGGTCameraFile(camera_0_file_path)
-
-    print('gt camera 0:')
-    print(gt_camera.camera2worldCV)
-
-    camera_0_extrinsic = predictions['extrinsic'][0]
-    camera_0_intrinsic = predictions['intrinsic'][0]
+    gt_camera.world2camera = gt_camera.world2camera @ c2wCV
 
     camera2world_cv = np.eye(4)
-    camera2world_cv[:3, :] = camera_0_extrinsic
-
-    print('predict camera 0:')
-    print(camera2world_cv)
+    camera2world_cv[:3, :] = extrinsic
 
     camera = Camera(
         width=image.shape[1],
         height=image.shape[0],
-        fx=camera_0_intrinsic[0][0],
-        fy=camera_0_intrinsic[1][1],
-        cx=camera_0_intrinsic[0][2],
-        cy=camera_0_intrinsic[1][2],
+        fx=intrinsic[0][0],
+        fy=intrinsic[1][1],
         device=device,
     )
     camera.setWorld2CameraByCamera2WorldCV(camera2world_cv)
+    camera.world2camera = camera.world2camera @ c2wCV
 
-    print('loaded camera 0:')
-    print(camera.camera2worldCV)
+    gt_pos = gt_camera.pos
+    pred_pos = camera.pos
 
-    render_dict = NVDiffRastRenderer.renderTexture(mesh, gt_camera)
+    render_dict = NVDiffRastRenderer.renderTexture(mesh, camera)
     render_image = render_dict['image']
 
     concat_img = np.concatenate([image, render_image], axis=1)

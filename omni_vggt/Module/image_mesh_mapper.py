@@ -60,6 +60,17 @@ class ImageMeshMapper(object):
         depth_vis_folder_path = save_data_folder_path + 'depths_vis/'
         os.makedirs(depth_vis_folder_path, exist_ok=True)
 
+        first_camera = camera_list[0]
+        world2cameraCV_global = toNumpy(first_camera.world2cameraCV, np.float32)
+        camera2worldCV_global = toNumpy(first_camera.camera2worldCV, np.float32)
+
+        with open(camera_folder_path + 'c2wCV.txt', 'w') as f:
+            for j in range(3):
+                f.write(str(camera2worldCV_global[j][0]) + '\t')
+                f.write(str(camera2worldCV_global[j][1]) + '\t')
+                f.write(str(camera2worldCV_global[j][2]) + '\t')
+                f.write(str(camera2worldCV_global[j][3]) + '\n')
+
         print('[INFO][ImageMeshMapper::createOmniVGGTDataFolder]')
         print('\t start create omnivggt data folder...')
         for i in trange(len(camera_list)):
@@ -75,8 +86,8 @@ class ImageMeshMapper(object):
                 camera=camera,
             )
 
-            camera2world = toNumpy(camera.camera2worldCV)
-            intrinsic = toNumpy(camera.intrinsic)
+            camera2world = toNumpy(camera.camera2worldCV, np.float32) @ world2cameraCV_global
+            intrinsic = toNumpy(camera.intrinsic, np.float32)
             with open(camera_folder_path + str(i) + '.txt', 'w') as f:
                 for j in range(3):
                     f.write(str(camera2world[j][0]) + '\t')
