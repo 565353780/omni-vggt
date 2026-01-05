@@ -13,6 +13,8 @@ from visual_util import (
     predictions_to_glb,
 )
 
+from omni_vggt.Method.path import createFileFolder
+
 
 class Detector(object):
     def __init__(
@@ -78,8 +80,8 @@ class Detector(object):
         get_world_points_from_depth(predictions_0)
         return predictions_0
 
+    @staticmethod
     def saveAsGLB(
-        self,
         predictions: dict,
         image_folder_path: str,
         save_glb_file_path: str,
@@ -95,6 +97,8 @@ class Detector(object):
             target_dir=image_folder_path,
             prediction_mode="Predicted Depth",
         )
+
+        createFileFolder(save_glb_file_path)
         glbscene.export(file_obj=save_glb_file_path)
         print(f"Saved GLB file to {save_glb_file_path}")
         return True
