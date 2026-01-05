@@ -99,13 +99,32 @@ if __name__ == '__main__':
         c2wCV[i] = [float(d) for d in lines[i].split()]
     c2wCV = toTensor(c2wCV, dtype, device)
 
-    gt_camera = Camera(
-        width=image.shape[1],
-        height=image.shape[0],
-        device=device,
-    )
-    gt_camera.loadVGGTCameraFile(camera_0_file_path)
-    gt_camera.world2camera = gt_camera.world2camera @ c2wCV
+    for i in range(24):
+        gt_camera = Camera(
+            width=image.shape[1],
+            height=image.shape[0],
+        )
+        gt_camera.loadVGGTCameraFile(save_data_folder_path + 'cameras/' + str(i) + '.txt')
+
+        pred_camera = Camera(
+            width=image.shape[1],
+            height=image.shape[0],
+            fx=predictions['intrinsic'][i][0][0],
+            fy=predictions['intrinsic'][i][0][1],
+            cx=predictions['intrinsic'][i][0][2],
+            cy=predictions['intrinsic'][i][1][2],
+        )
+        camera2world_cv = np.eye(4)
+        camera2world_cv[:3, :] = predictions['extrinsic'][i]
+        pred_camera.setWorld2CameraByCamera2WorldCV(camera2world_cv)
+
+        print('==== camera ' + str(i) + ' ====')
+        print('camera diff:')
+        print(gt_camera.R - pred_camera.R)
+        print(gt_camera.t - pred_camera.t)
+        print(gt_camera.pos - pred_camera.pos)
+
+    exit()
 
     camera2world_cv = np.eye(4)
     camera2world_cv[:3, :] = extrinsic
@@ -119,9 +138,11 @@ if __name__ == '__main__':
     )
     camera.setWorld2CameraByCamera2WorldCV(camera2world_cv)
     camera.world2camera = camera.world2camera @ c2wCV
+    camera.outputInfo()
 
-    gt_pos = gt_camera.pos
-    pred_pos = camera.pos
+    #FIXME: tmp edit params
+    camera.fx = 800
+    camera.fy = 800
 
     render_dict = NVDiffRastRenderer.renderTexture(mesh, camera)
     render_image = render_dict['image']
